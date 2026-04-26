@@ -299,72 +299,45 @@ body {
 }
 
 /* ===== MOBILE ===== */
-@media (max-width: 768px) {
-    .burger {
-        display: flex !important; /* принудительно, перебиваем inline-стили JS */
-    }
-
-    .sidebar {
-        transform: translateX(-100%);
-        width: 280px;
-        max-width: 80vw;
-        box-shadow: 2px 0 8px rgba(0,0,0,0.1);
-    }
-
-    .sidebar.open {
-        transform: translateX(0);
-    }
-
-    /* Отступ для заголовка, чтобы бургер не перекрывал */
-    .sidebar-header {
-        padding-left: 3.5rem;
-        padding-top: 0.5rem;
-    }
-
-    .content {
-        margin-left: 0;
-        padding: 4rem 1rem 1rem;
-        max-width: 100%;
-        width: 100%;
-    }
-
-    body.menu-open {
-        overflow: hidden;
-        position: fixed; /* фикс для iOS */
-        width: 100%;
-    }
-
-    .markdown-body h1 { font-size: 1.5em; }
-    .markdown-body h2 { font-size: 1.25em; }
-    .markdown-body h3 { font-size: 1.1em; }
-
-    .markdown-body pre {
-        padding: 0.75rem;
-        font-size: 0.8em;
-    }
+.burger {
+    display: flex !important; /* принудительно, перебиваем inline-стили JS */
 }
 
-/* Очень маленькие экраны */
-@media (max-width: 480px) {
-    .content {
-        padding: 4rem 0.75rem 0.75rem;
-    }
-
-    .markdown-body {
-        font-size: 0.95em;
-    }
-
-    .burger {
-        top: 8px;
-        left: 8px;
-        width: 40px;
-        height: 40px;
-    }
+.sidebar {
+    transform: translateX(-100%);
+    width: 280px;
+    max-width: 80vw;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
 }
 
-/* iPhone SE и маленькие */
-@media (max-width: 375px) {
-    .sidebar {
-        width: 260px;
-    }
+.sidebar.open {
+    transform: translateX(0);
+}
+
+/* Отступ для заголовка, чтобы бургер не перекрывал */
+.sidebar-header {
+    padding-left: 3.5rem;
+    padding-top: 0.5rem;
+}
+
+.content {
+    margin-left: 0;
+    padding: 4rem 1rem 1rem;
+    max-width: 100%;
+    width: 100%;
+}
+
+body.menu-open {
+    overflow: hidden;
+    position: fixed; /* фикс для iOS */
+    width: 100%;
+}
+
+.markdown-body h1 { font-size: 1.5em; }
+.markdown-body h2 { font-size: 1.25em; }
+.markdown-body h3 { font-size: 1.1em; }
+
+.markdown-body pre {
+    padding: 0.75rem;
+    font-size: 0.8em;
 }

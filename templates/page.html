@@ -24,7 +24,7 @@
 
 <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
-        <h3>📚 База знаний</h3>
+        <h3>{{.Title}}</h3>
         <button id="theme-toggle" class="theme-btn" title="Переключить тему">🌙</button>
     </div>
     {{range .Sidebar}}
@@ -95,14 +95,7 @@
 
         // iOS Safari: принудительно проверяем ширину при загрузке
         function checkMobile() {
-            if (window.innerWidth <= 768) {
-                burger.style.display = 'flex';
-            } else {
-                burger.style.display = 'none';
-                sidebar.classList.remove('open');
-                overlay.classList.remove('active');
-                document.body.classList.remove('menu-open');
-            }
+            burger.style.display = 'flex';
         }
 
         window.addEventListener('resize', checkMobile);
