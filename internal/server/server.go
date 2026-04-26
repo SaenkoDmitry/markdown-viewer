@@ -167,9 +167,9 @@ func (s *Server) Run() error {
 	mux := http.NewServeMux()
 
 	// Оберните все обработчики в функцию добавления префикса
-	mux.HandleFunc(s.basePath+"/", s.handleIndex)
-	mux.HandleFunc(s.basePath+"/open", s.handleOpen)
-	mux.HandleFunc(s.basePath+"/api/sessions", s.handleAPI)
+	mux.HandleFunc("/", s.handleIndex)
+	mux.HandleFunc("/open", s.handleOpen)
+	mux.HandleFunc("/api/sessions", s.handleAPI)
 	mux.Handle("/static/", http.StripPrefix(s.basePath+"/static/", safeFileServer("static")))
 
 	// Обработчик для поддержки basePath
