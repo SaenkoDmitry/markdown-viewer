@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <!-- Важно для iPhone: viewport-fit=cover и правильный initial-scale -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Markdown Viewer">
     <title>{{.Title}}</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-light" disabled>
@@ -87,20 +88,9 @@
         // Закрываем меню при клике на ссылку
         sidebar.querySelectorAll('a').forEach(link => {
             link.addEventListener('click', () => {
-                if (window.innerWidth <= 768) {
-                    toggleMenu();
-                }
+                toggleMenu();
             });
         });
-
-        // iOS Safari: принудительно проверяем ширину при загрузке
-        function checkMobile() {
-            burger.style.display = 'flex';
-        }
-
-        window.addEventListener('resize', checkMobile);
-        window.addEventListener('orientationchange', checkMobile);
-        checkMobile(); // проверяем сразу
     })();
 </script>
 </body>
