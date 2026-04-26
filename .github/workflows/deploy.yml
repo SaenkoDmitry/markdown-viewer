@@ -47,6 +47,12 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
             sudo systemctl stop markdown-viewer
+            
+            echo "BASE_PATH=${{ secrets.BASE_PATH }}" > .env
+
+          # -----------------
+          # echo "ENV_VAR_2=${{ secrets.ENV_VAR_2 }}" >> .env
+          # ---------------
 
             cd /opt/markdown-viewer
             sudo systemctl start markdown-viewer
