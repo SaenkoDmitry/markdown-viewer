@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/joho/godotenv"
 
@@ -16,7 +15,6 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	log.Printf("base path: %s", os.Getenv("BASE_PATH"))
 	if err := session.RestoreFromDisk(); err != nil {
 		log.Printf("Failed to restore sessions: %v", err)
 	}

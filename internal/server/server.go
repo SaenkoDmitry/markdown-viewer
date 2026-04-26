@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -147,7 +146,6 @@ type Server struct {
 	tmpl        *template.Template
 	limiter     *rateLimiter
 	maxRepoSize int64 // макс размер репо в байтах
-	basePath    string
 }
 
 func New() *Server {
@@ -156,37 +154,20 @@ func New() *Server {
 		"templates/index.html",
 	))
 	return &Server{
-		basePath:    strings.TrimSuffix(os.Getenv("BASE_PATH"), "/"),
 		tmpl:        tmpl,
-		limiter:     newRateLimiter(30, time.Minute), // 30 запросов в минуту
-		maxRepoSize: 50 * 1024 * 1024,                // 50 MB
+		limiter:     newRateLimiter(30, time.Minute),
+		maxRepoSize: 50 * 1024 * 1024,
 	}
 }
 
 func (s *Server) Run() error {
 	mux := http.NewServeMux()
-
-	// Оберните все обработчики в функцию добавления префикса
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/open", s.handleOpen)
 	mux.HandleFunc("/api/sessions", s.handleAPI)
-	mux.Handle("/static/", http.StripPrefix(s.basePath+"/static/", safeFileServer("static")))
+	mux.Handle("/static/", http.StripPrefix("/static/", safeFileServer("static")))
 
-	// Обработчик для поддержки basePath
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Убираем базовый путь из запроса если он есть
-		path := r.URL.Path
-		if s.basePath != "" && strings.HasPrefix(path, s.basePath) {
-			r.URL.Path = strings.TrimPrefix(path, s.basePath)
-			if r.URL.Path == "" {
-				r.URL.Path = "/"
-			}
-		}
-		mux.ServeHTTP(w, r)
-	})
-
-	// Применяем middleware
-	handler = securityHeaders(handler)
+	handler := securityHeaders(mux)
 	handler = rateLimitMiddleware(s.limiter)(handler)
 
 	srv := &http.Server{
@@ -197,7 +178,7 @@ func (s *Server) Run() error {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	log.Printf("Server: http://localhost:%s (base path: %s)", port, s.basePath)
+	log.Printf("Server: http://localhost:%s", port)
 	return srv.ListenAndServe()
 }
 
@@ -212,7 +193,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 || parts[0] != "s" {
-		http.Redirect(w, r, s.basePath+"/", 302)
+		http.Redirect(w, r, "/", 302)
 		return
 	}
 
@@ -236,11 +217,11 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if pagePath == "" {
 		index := content.FindIndexPage(sess.Pages)
 		if index != "" {
-			http.Redirect(w, r, s.basePath+"/s/"+sessID+"/"+index, 302)
+			http.Redirect(w, r, "/s/"+sessID+"/"+index, 302)
 			return
 		}
 		for k := range sess.Pages {
-			http.Redirect(w, r, s.basePath+"/s/"+sessID+"/"+k, 302)
+			http.Redirect(w, r, "/s/"+sessID+"/"+k, 302)
 			return
 		}
 	}
@@ -258,7 +239,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 // Обновите handleOpen для редиректов с префиксом
 func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Redirect(w, r, s.basePath+"/", 302)
+		http.Redirect(w, r, "/", 302)
 		return
 	}
 
@@ -293,8 +274,7 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Session %s ready: %s (%d pages)", sess.ID, sess.RepoURL, len(sess.Pages))
 
-	redirectURL := fmt.Sprintf("%s/s/%s/?session=%s&repo=%s&branch=%s&pages=%d",
-		s.basePath,
+	redirectURL := fmt.Sprintf("/s/%s/?session=%s&repo=%s&branch=%s&pages=%d",
 		sess.ID,
 		sess.ID,
 		url.QueryEscape(sess.RepoURL),
