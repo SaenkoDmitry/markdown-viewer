@@ -6,18 +6,28 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"markdown-viewer/internal/content"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"markdown-viewer/internal/content"
 	"markdown-viewer/internal/session"
 )
 
 const port = "8085"
+
+var basePath = ""
+
+func init() {
+	// Получаем базовый путь из переменной окружения
+	if bp := os.Getenv("BASE_PATH"); bp != "" {
+		basePath = strings.TrimSuffix(bp, "/")
+	}
+}
 
 // ===== Rate Limiter =====
 
@@ -161,22 +171,31 @@ func New() *Server {
 }
 
 func (s *Server) Run() error {
-	// Router с middleware
 	mux := http.NewServeMux()
 
-	// API routes
+	// Оберните все обработчики в функцию добавления префикса
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/open", s.handleOpen)
 	mux.HandleFunc("/api/sessions", s.handleAPI)
+	mux.Handle("/static/", http.StripPrefix(basePath+"/static/", safeFileServer("static")))
 
-	// Static с защитой
-	mux.Handle("/static/", http.StripPrefix("/static/", safeFileServer("static")))
+	// Обработчик для поддержки basePath
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Убираем базовый путь из запроса если он есть
+		path := r.URL.Path
+		if basePath != "" && strings.HasPrefix(path, basePath) {
+			r.URL.Path = strings.TrimPrefix(path, basePath)
+			if r.URL.Path == "" {
+				r.URL.Path = "/"
+			}
+		}
+		mux.ServeHTTP(w, r)
+	})
 
-	// Apply middleware
-	handler := securityHeaders(mux)
+	// Применяем middleware
+	handler = securityHeaders(handler)
 	handler = rateLimitMiddleware(s.limiter)(handler)
 
-	// Server with timeouts
 	srv := &http.Server{
 		Addr:         ":" + port,
 		Handler:      handler,
@@ -185,12 +204,14 @@ func (s *Server) Run() error {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	log.Printf("Server: http://localhost:%s", port)
+	log.Printf("Server: http://localhost:%s (base path: %s)", port, basePath)
 	return srv.ListenAndServe()
 }
 
+// Обновите handleIndex для работы с префиксом
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(r.URL.Path, "/")
+
 	if path == "" || path == "s" {
 		s.tmpl.ExecuteTemplate(w, "index.html", nil)
 		return
@@ -198,12 +219,11 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 || parts[0] != "s" {
-		http.Redirect(w, r, "/", 302)
+		http.Redirect(w, r, basePath+"/", 302)
 		return
 	}
 
 	sessID := parts[1]
-	// Sanitize session ID — только hex символы
 	if !isValidSessionID(sessID) {
 		http.Error(w, "Invalid session ID", 400)
 		return
@@ -223,11 +243,11 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if pagePath == "" {
 		index := content.FindIndexPage(sess.Pages)
 		if index != "" {
-			http.Redirect(w, r, "/s/"+sessID+"/"+index, 302)
+			http.Redirect(w, r, basePath+"/s/"+sessID+"/"+index, 302)
 			return
 		}
 		for k := range sess.Pages {
-			http.Redirect(w, r, "/s/"+sessID+"/"+k, 302)
+			http.Redirect(w, r, basePath+"/s/"+sessID+"/"+k, 302)
 			return
 		}
 	}
@@ -242,14 +262,14 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	s.tmpl.ExecuteTemplate(w, "page.html", page)
 }
 
+// Обновите handleOpen для редиректов с префиксом
 func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Redirect(w, r, "/", 302)
+		http.Redirect(w, r, basePath+"/", 302)
 		return
 	}
 
-	// Ограничение размера тела запроса
-	r.Body = http.MaxBytesReader(w, r.Body, 1024) // 1 KB для URL
+	r.Body = http.MaxBytesReader(w, r.Body, 1024)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Request too large", 400)
 		return
@@ -261,21 +281,13 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Валидация URL
 	if !isValidGitHubURL(repoURL) {
 		http.Error(w, "Invalid GitHub URL", 400)
 		return
 	}
 
-	// Контекст с таймаутом для скачивания
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 	defer cancel()
-
-	// Проверяем размер через HEAD запрос (опционально)
-	if !s.checkRepoSize(repoURL) {
-		http.Error(w, "Repository too large (max 50MB)", 400)
-		return
-	}
 
 	sess, err := session.Create(repoURL)
 	if err != nil {
@@ -284,11 +296,12 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = ctx // используем контекст если нужно
+	_ = ctx
 
 	log.Printf("Session %s ready: %s (%d pages)", sess.ID, sess.RepoURL, len(sess.Pages))
 
-	redirectURL := fmt.Sprintf("/s/%s/?session=%s&repo=%s&branch=%s&pages=%d",
+	redirectURL := fmt.Sprintf("%s/s/%s/?session=%s&repo=%s&branch=%s&pages=%d",
+		basePath,
 		sess.ID,
 		sess.ID,
 		url.QueryEscape(sess.RepoURL),
