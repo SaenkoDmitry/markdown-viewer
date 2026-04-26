@@ -7,75 +7,17 @@ import (
 	"html/template"
 	"log"
 	"markdown-viewer/internal/content"
+	"markdown-viewer/internal/limiter"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"markdown-viewer/internal/session"
 )
 
 const port = "8085"
-
-// ===== Rate Limiter =====
-
-type visitor struct {
-	lastSeen time.Time
-	count    int
-}
-
-type rateLimiter struct {
-	visitors map[string]*visitor
-	mu       sync.RWMutex
-	limit    int
-	window   time.Duration
-}
-
-func newRateLimiter(limit int, window time.Duration) *rateLimiter {
-	rl := &rateLimiter{
-		visitors: make(map[string]*visitor),
-		limit:    limit,
-		window:   window,
-	}
-	go rl.cleanup()
-	return rl
-}
-
-func (rl *rateLimiter) cleanup() {
-	ticker := time.NewTicker(time.Minute)
-	for range ticker.C {
-		rl.mu.Lock()
-		for ip, v := range rl.visitors {
-			if time.Since(v.lastSeen) > rl.window {
-				delete(rl.visitors, ip)
-			}
-		}
-		rl.mu.Unlock()
-	}
-}
-
-func (rl *rateLimiter) allow(ip string) bool {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-
-	v, exists := rl.visitors[ip]
-	if !exists {
-		rl.visitors[ip] = &visitor{lastSeen: time.Now(), count: 1}
-		return true
-	}
-
-	if time.Since(v.lastSeen) > rl.window {
-		v.count = 1
-		v.lastSeen = time.Now()
-		return true
-	}
-
-	v.count++
-	v.lastSeen = time.Now()
-	return v.count <= rl.limit
-}
 
 func getClientIP(r *http.Request) string {
 	// X-Forwarded-For для прокси
@@ -112,11 +54,11 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-func rateLimitMiddleware(rl *rateLimiter) func(http.Handler) http.Handler {
+func rateLimitMiddleware(rl *limiter.RateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ip := getClientIP(r)
-			if !rl.allow(ip) {
+			if !rl.Allow(ip) {
 				http.Error(w, "Too many requests", http.StatusTooManyRequests)
 				return
 			}
@@ -144,7 +86,7 @@ func safeFileServer(root string) http.Handler {
 
 type Server struct {
 	tmpl        *template.Template
-	limiter     *rateLimiter
+	limiter     *limiter.RateLimiter
 	maxRepoSize int64 // макс размер репо в байтах
 }
 
@@ -155,7 +97,7 @@ func New() *Server {
 	))
 	return &Server{
 		tmpl:        tmpl,
-		limiter:     newRateLimiter(30, time.Minute),
+		limiter:     limiter.NewRateLimiter(30, 10),
 		maxRepoSize: 50 * 1024 * 1024,
 	}
 }
