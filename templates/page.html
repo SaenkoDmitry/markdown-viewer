@@ -10,9 +10,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body>
-<nav class="sidebar">
+<!-- Бургер для мобильных -->
+<button class="burger" id="burger" aria-label="Открыть меню">
+    <span></span>
+    <span></span>
+    <span></span>
+</button>
+
+<!-- Оверлей для закрытия по клику вне меню -->
+<div class="overlay" id="overlay"></div>
+
+<nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
-        <h3>📚 База знаний</h3>
+        <h3>{{.Title}}</h3>
         <button id="theme-toggle" class="theme-btn" title="Переключить тему">🌙</button>
     </div>
     {{range .Sidebar}}
@@ -30,6 +40,7 @@
 
 <script>
     (function() {
+        // Тема
         const btn = document.getElementById('theme-toggle');
         const html = document.documentElement;
         const hljsLight = document.getElementById('hljs-light');
@@ -55,6 +66,30 @@
         });
 
         hljs.highlightAll();
+
+        // Бургер меню
+        const burger = document.getElementById('burger');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        function toggleMenu() {
+            burger.classList.toggle('active');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+            document.body.classList.toggle('menu-open');
+        }
+
+        burger.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+
+        // Закрываем меню при клике на ссылку
+        sidebar.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    toggleMenu();
+                }
+            });
+        });
     })();
 </script>
 </body>

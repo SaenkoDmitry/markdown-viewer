@@ -14,6 +14,7 @@
     --heading-border: #d0d7de;
     --btn-bg: #eaeef2;
     --btn-fg: #24292f;
+    --burger-bg: #24292f;
 }
 
 [data-theme="dark"] {
@@ -31,6 +32,7 @@
     --heading-border: #30363d;
     --btn-bg: #21262d;
     --btn-fg: #c9d1d9;
+    --burger-bg: #c9d1d9;
 }
 
 /* ===== БАЗОВЫЕ ===== */
@@ -46,6 +48,60 @@ body {
     transition: background 0.2s, color 0.2s;
 }
 
+/* ===== БУРГЕР ===== */
+.burger {
+    display: none;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 1000;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    flex-direction: column;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+}
+
+.burger span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--burger-bg);
+    border-radius: 2px;
+    transition: all 0.3s;
+}
+
+.burger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+}
+
+.burger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.burger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -5px);
+}
+
+/* ===== ОВЕРЛЕЙ ===== */
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+}
+
+.overlay.active {
+    display: block;
+}
+
 /* ===== SIDEBAR ===== */
 .sidebar {
     width: 280px;
@@ -55,7 +111,8 @@ body {
     position: fixed;
     height: 100vh;
     overflow-y: auto;
-    transition: background 0.2s;
+    transition: transform 0.3s ease, background 0.2s;
+    z-index: 999;
 }
 
 .sidebar-header {
@@ -88,19 +145,16 @@ body {
     opacity: 0.8;
 }
 
-.nav-link, .nav-folder {
+.nav-link {
     display: block;
     padding: 6px 16px;
     font-size: 0.875rem;
-    line-height: 1.5;
+    line-height: 1.4;
     text-decoration: none;
-    transition: background 0.15s;
-}
-
-.nav-link {
     color: var(--fg);
     border-radius: 6px;
-    margin: 2px 8px;
+    margin: 1px 8px;
+    transition: background 0.15s;
 }
 
 .nav-link:hover {
@@ -112,22 +166,13 @@ body {
     background: rgba(88, 166, 255, 0.1);
 }
 
-.nav-folder {
-    color: var(--nav-folder);
-    font-weight: 500;
-    margin-top: 8px;
-    pointer-events: none;
-}
-
-.level-1 { padding-left: 24px; }
-.level-2 { padding-left: 40px; }
-
 /* ===== CONTENT ===== */
 .content {
     margin-left: 280px;
     padding: 2rem 3rem;
     max-width: 900px;
     width: 100%;
+    transition: margin-left 0.3s;
 }
 
 .markdown-body h1,
@@ -232,15 +277,52 @@ body {
 
 /* ===== MOBILE ===== */
 @media (max-width: 768px) {
-    .sidebar {
-        width: 100%;
-        position: relative;
-        height: auto;
-        border-right: none;
-        border-bottom: 1px solid var(--sidebar-border);
+    .burger {
+        display: flex;
     }
+
+    .sidebar {
+        transform: translateX(-100%);
+        width: 260px;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* Отступ для заголовка, чтобы бургер не перекрывал */
+    .sidebar-header {
+        padding-left: 3.5rem; /* место для бургера */
+    }
+
     .content {
         margin-left: 0;
-        padding: 1rem;
+        padding: 4rem 1rem 1rem;
+        max-width: 100%;
+    }
+
+    body.menu-open {
+        overflow: hidden;
+    }
+
+    .markdown-body h1 { font-size: 1.5em; }
+    .markdown-body h2 { font-size: 1.25em; }
+    .markdown-body h3 { font-size: 1.1em; }
+
+    .markdown-body pre {
+        padding: 0.75rem;
+        font-size: 0.8em;
+    }
+}
+
+/* Очень маленькие экраны */
+@media (max-width: 480px) {
+    .content {
+        padding: 4rem 0.75rem 0.75rem;
+    }
+
+    .markdown-body {
+        font-size: 0.95em;
     }
 }
