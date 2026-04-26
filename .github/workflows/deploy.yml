@@ -1,0 +1,53 @@
+name: Deploy Training Bot to VPS
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # -----------------
+      # BACKEND
+      # -----------------
+
+      - name: Set up Go 1.24
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.24
+
+      - name: Build Go binary
+        run: |
+          CGO_ENABLED=0 go build -o markdown-viewer ./cmd/main.go
+
+      # -----------------
+      # DEPLOY TO VPS
+      # -----------------
+
+      - name: Copy binary to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          source: "markdown-viewer"
+          target: "/opt/markdown-viewer/"
+
+      - name: Deploy systemd service
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            sudo systemctl stop markdown-viewer
+
+            cd /opt/markdown-viewer
+            sudo systemctl start markdown-viewer
+            sudo systemctl status markdown-viewer --no-pager

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Viewer</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .landing {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+            text-align: center;
+        }
+        .landing h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            border: none;
+        }
+        .landing p {
+            color: var(--nav-folder);
+            margin-bottom: 2rem;
+        }
+        .repo-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-width: 600px;
+            width: 100%;
+        }
+        .repo-form input {
+            padding: 12px 16px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--fg);
+            font-size: 1rem;
+        }
+        .repo-form input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .repo-form button {
+            padding: 12px 24px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .repo-form button:hover {
+            background: var(--accent-hover);
+        }
+        .repo-form button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+        .examples {
+            margin-top: 2rem;
+            font-size: 0.875rem;
+            color: var(--nav-folder);
+        }
+        .examples code {
+            background: var(--code-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .sessions {
+            margin-top: 3rem;
+            text-align: left;
+            max-width: 600px;
+            width: 100%;
+        }
+        .sessions h3 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: var(--nav-folder);
+        }
+        .session-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            text-decoration: none;
+            color: var(--fg);
+            transition: background 0.15s;
+        }
+        .session-item:hover {
+            background: var(--sidebar-bg);
+        }
+        .session-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .session-repo {
+            font-weight: 500;
+            color: var(--accent);
+        }
+        .session-meta {
+            font-size: 0.8rem;
+            color: var(--nav-folder);
+        }
+        .session-remove {
+            background: none;
+            border: none;
+            color: var(--nav-folder);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 1.2rem;
+        }
+        .session-remove:hover {
+            color: #cf222e;
+        }
+        .empty {
+            color: var(--nav-folder);
+            font-size: 0.875rem;
+            text-align: center;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+<div class="landing">
+    <h1>📖 Markdown Viewer</h1>
+    <p>Вставьте ссылку на публичный GitHub-репозиторий с .md файлами</p>
+
+    <form class="repo-form" action="/open" method="POST" id="form">
+        <input
+                type="url"
+                name="repo"
+                placeholder="https://github.com/username/obsidian-notes"
+                required
+                autofocus
+                id="repo-input"
+        >
+        <button type="submit" id="submit-btn">Открыть</button>
+    </form>
+
+    <div class="examples">
+        <p>Пример: <code>https://github.com/golang/go</code></p>
+    </div>
+
+    <div class="sessions" id="sessions" style="display:none">
+        <h3>🕐 История</h3>
+        <div id="sessions-list"></div>
+    </div>
+</div>
+
+<script>
+    const STORAGE_KEY = 'mdviewer-history';
+
+    function loadHistory() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        } catch {
+            return [];
+        }
+    }
+
+    function saveHistory(history) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-20))); // макс 20 записей
+    }
+
+    function addToHistory(repoURL, sessionID, branch, pages) {
+        const history = loadHistory().filter(h => h.repo !== repoURL); // убираем дубликаты
+        history.push({
+            repo: repoURL,
+            id: sessionID,
+            branch: branch,
+            pages: pages,
+            date: new Date().toISOString()
+        });
+        saveHistory(history);
+        renderHistory();
+    }
+
+    function removeFromHistory(repoURL) {
+        const history = loadHistory().filter(h => h.repo !== repoURL);
+        saveHistory(history);
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const history = loadHistory();
+        const container = document.getElementById('sessions');
+        const list = document.getElementById('sessions-list');
+
+        if (history.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+        list.innerHTML = '';
+
+        history.slice().reverse().forEach(h => {
+            const div = document.createElement('div');
+            div.className = 'session-item';
+            div.innerHTML = `
+            <a href="/s/${h.id}/" style="display:flex;flex:1;align-items:center;justify-content:space-between;text-decoration:none;color:inherit;">
+                <div class="session-info">
+                    <span class="session-repo">${extractRepoName(h.repo)}</span>
+                    <span class="session-meta">${h.branch} · ${h.pages} стр. · ${formatDate(h.date)}</span>
+                </div>
+                <span>→</span>
+            </a>
+            <button class="session-remove" onclick="event.preventDefault();removeFromHistory('${h.repo}');" title="Удалить">×</button>
+        `;
+            list.appendChild(div);
+        });
+    }
+
+    function extractRepoName(url) {
+        const m = url.match(/github\.com\/([^/]+\/[^/]+)/);
+        return m ? m[1] : url;
+    }
+
+    function formatDate(iso) {
+        const d = new Date(iso);
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    }
+
+    // Сохраняем сессию после успешного открытия
+    // Сервер редиректит на /s/ID/, мы ловим это и сохраняем в историю
+    const urlParams = new URLSearchParams(window.location.search);
+    const newSession = urlParams.get('session');
+    const newRepo = urlParams.get('repo');
+    const newBranch = urlParams.get('branch');
+    const newPages = urlParams.get('pages');
+
+    if (newSession && newRepo) {
+        addToHistory(newRepo, newSession, newBranch || 'main', parseInt(newPages) || 0);
+        // Чистим URL
+        window.history.replaceState({}, '', '/');
+    }
+
+    document.getElementById('form').addEventListener('submit', function(e) {
+        const btn = document.getElementById('submit-btn');
+        btn.disabled = true;
+        btn.textContent = 'Загрузка...';
+    });
+
+    renderHistory();
+</script>
+</body>
+</html>
