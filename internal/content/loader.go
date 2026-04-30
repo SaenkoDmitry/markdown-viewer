@@ -11,16 +11,27 @@ func Load(dir string, sessionPrefix string) (map[string]*Page, []NavItem, error)
 	pages := make(map[string]*Page)
 	var nav []NavItem
 
-	// Собираем все пути для wiki-ссылок
 	tempPages := make(map[string]bool)
+	tempImages := make(map[string]string)
+
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || filepath.Ext(path) != ".md" {
+		if err != nil || info.IsDir() {
 			return nil
 		}
+
 		rel, _ := filepath.Rel(dir, path)
-		slug := strings.TrimSuffix(rel, ".md")
-		urlPath := Slugify(slug)
-		tempPages[urlPath] = true
+
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext == ".md" {
+			slug := strings.TrimSuffix(rel, ".md")
+			urlPath := Slugify(slug)
+			tempPages[urlPath] = true
+		} else if ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".webp" || ext == ".svg" {
+			base := filepath.Base(rel)
+			tempImages[base] = rel
+			tempImages[rel] = rel
+		}
+
 		return nil
 	})
 
@@ -43,7 +54,8 @@ func Load(dir string, sessionPrefix string) (map[string]*Page, []NavItem, error)
 			return nil
 		}
 
-		processedContent := ProcessWikiLinks(string(rawContent), tempPages, sessionPrefix)
+		processedContent := ProcessWikiImages(string(rawContent), tempImages, sessionPrefix)
+		processedContent = ProcessWikiLinks(processedContent, tempPages, sessionPrefix)
 
 		pages[urlPath] = &Page{
 			Title:   title,

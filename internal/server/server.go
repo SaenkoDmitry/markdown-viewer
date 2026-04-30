@@ -8,19 +8,18 @@ import (
 	"log"
 	"markdown-viewer/internal/content"
 	"markdown-viewer/internal/limiter"
+	"markdown-viewer/internal/session"
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
-
-	"markdown-viewer/internal/session"
 )
 
 const port = "8085"
 
 func getClientIP(r *http.Request) string {
-	// X-Forwarded-For для прокси
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff != "" {
 		ips := strings.Split(xff, ",")
@@ -71,7 +70,6 @@ func rateLimitMiddleware(rl *limiter.RateLimiter) func(http.Handler) http.Handle
 func safeFileServer(root string) http.Handler {
 	fs := http.FileServer(http.Dir(root))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Блокируем попытки выйти за пределы root
 		cleanPath := strings.ReplaceAll(r.URL.Path, "..", "")
 		if strings.Contains(cleanPath, "\x00") {
 			http.Error(w, "Invalid path", 400)
@@ -87,7 +85,7 @@ func safeFileServer(root string) http.Handler {
 type Server struct {
 	tmpl        *template.Template
 	limiter     *limiter.RateLimiter
-	maxRepoSize int64 // макс размер репо в байтах
+	maxRepoSize int64
 }
 
 func New() *Server {
@@ -124,7 +122,6 @@ func (s *Server) Run() error {
 	return srv.ListenAndServe()
 }
 
-// Обновите handleIndex для работы с префиксом
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(r.URL.Path, "/")
 
@@ -151,6 +148,38 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Если путь содержит /raw/ — раздаём статический файл
+	if len(parts) >= 3 && parts[2] == "raw" {
+		filePath := strings.Join(parts[3:], "/")
+		// Защита от path traversal
+		filePath = strings.ReplaceAll(filePath, "..", "")
+		if strings.Contains(filePath, "\x00") {
+			http.Error(w, "Invalid path", 400)
+			return
+		}
+
+		fullPath := filepath.Join(sess.ContentDir, filePath)
+		// Проверяем, что файл действительно внутри директории сессии
+		cleanFull, err := filepath.Abs(fullPath)
+		if err != nil {
+			http.Error(w, "Invalid path", 400)
+			return
+		}
+		cleanDir, err := filepath.Abs(sess.ContentDir)
+		if err != nil {
+			http.Error(w, "Invalid path", 400)
+			return
+		}
+		if !strings.HasPrefix(cleanFull, cleanDir) {
+			http.Error(w, "Access denied", 403)
+			return
+		}
+
+		http.ServeFile(w, r, fullPath)
+		return
+	}
+
+	// Рендерим страницу
 	pagePath := ""
 	if len(parts) > 2 {
 		pagePath = strings.Join(parts[2:], "/")
@@ -178,7 +207,6 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	s.tmpl.ExecuteTemplate(w, "page.html", page)
 }
 
-// Обновите handleOpen для редиректов с префиксом
 func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Redirect(w, r, "/", 302)
@@ -247,7 +275,6 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Ограничиваем вывод
 	if len(list) > 100 {
 		list = list[:100]
 	}
@@ -276,7 +303,5 @@ func isValidGitHubURL(url string) bool {
 }
 
 func (s *Server) checkRepoSize(repoURL string) bool {
-	// Упрощённая проверка — можно добавить HEAD запрос к GitHub API
-	// Пока просто проверяем что URL выглядит валидно
 	return true
 }

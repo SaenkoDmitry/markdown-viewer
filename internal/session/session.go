@@ -17,6 +17,7 @@ type Session struct {
 	ID         string
 	RepoURL    string
 	Branch     string
+	CommitSHA  string // ← новое поле
 	ContentDir string
 	Pages      map[string]*content.Page
 	Nav        []content.NavItem
@@ -62,11 +63,6 @@ func All() map[string]*Session {
 }
 
 func Create(repoURL string) (*Session, error) {
-	if existing := FindByRepo(repoURL); existing != nil {
-		log.Printf("Reusing existing session %s for %s", existing.ID, repoURL)
-		return existing, nil
-	}
-
 	owner, repo, ok := content.ParseGitHubURL(repoURL)
 	if !ok {
 		return nil, fmt.Errorf("invalid URL")
@@ -77,8 +73,25 @@ func Create(repoURL string) (*Session, error) {
 		branch = "main"
 	}
 
+	// Проверяем коммит ДО создания сессии
+	commitSHA, err := content.GetLatestCommit(owner, repo, branch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect commit: %w", err)
+	}
+
+	// Проверяем существующую сессию: если коммит совпадает — переиспользуем
+	if existing := FindByRepo(repoURL); existing != nil {
+		if existing.CommitSHA == commitSHA {
+			log.Printf("Reusing existing session %s for %s (commit: %s)", existing.ID, repoURL, commitSHA[:7])
+			return existing, nil
+		}
+		log.Printf("Commit changed for %s, creating new session...", repoURL)
+		// Старая сессия остаётся в памяти, но при следующем запросе создастся новая
+	}
+
 	tmpDir := filepath.Join(os.TempDir(), fmt.Sprintf("mdviewer-%d", time.Now().Unix()))
-	if err := content.DownloadRepo(owner, repo, branch, tmpDir); err != nil {
+	commitSHA, err = content.DownloadRepo(owner, repo, branch, tmpDir)
+	if err != nil {
 		return nil, err
 	}
 
@@ -101,6 +114,7 @@ func Create(repoURL string) (*Session, error) {
 		ID:         sessID,
 		RepoURL:    repoURL,
 		Branch:     branch,
+		CommitSHA:  commitSHA, // ← сохраняем хэш
 		ContentDir: tmpDir,
 		Pages:      pages,
 		Nav:        nav,
@@ -117,6 +131,8 @@ func Create(repoURL string) (*Session, error) {
 
 	SaveToDisk()
 
+	log.Printf("Created session %s for %s (%d pages, commit: %s)", sess.ID, repoURL, len(sess.Pages), commitSHA[:7])
+
 	return sess, nil
 }
 
@@ -131,6 +147,25 @@ func RestoreFromDisk() error {
 			continue
 		}
 
+		owner, repo, ok := content.ParseGitHubURL(item.RepoURL)
+		if !ok {
+			continue
+		}
+
+		// Проверяем актуальность коммита при восстановлении
+		latestCommit, err := content.GetLatestCommit(owner, repo, item.Branch)
+		if err == nil && latestCommit != item.CommitSHA {
+			log.Printf("Session %s outdated (%s -> %s), re-downloading...", item.ID, item.CommitSHA[:7], latestCommit[:7])
+
+			// Обновляем репозиторий
+			newCommit, err := content.DownloadRepo(owner, repo, item.Branch, item.Dir)
+			if err != nil {
+				log.Printf("Failed to update session %s: %v", item.ID, err)
+				continue
+			}
+			item.CommitSHA = newCommit
+		}
+
 		pages, nav, err := content.Load(item.Dir, "/s/"+item.ID+"/")
 		if err != nil {
 			continue
@@ -140,6 +175,7 @@ func RestoreFromDisk() error {
 			ID:         item.ID,
 			RepoURL:    item.RepoURL,
 			Branch:     item.Branch,
+			CommitSHA:  item.CommitSHA,
 			ContentDir: item.Dir,
 			Pages:      pages,
 			Nav:        nav,
@@ -153,7 +189,7 @@ func RestoreFromDisk() error {
 		store[sess.ID] = sess
 		mu.Unlock()
 
-		log.Printf("Restored session: %s (%d pages)", sess.ID, len(sess.Pages))
+		log.Printf("Restored session: %s (%d pages, commit: %s)", sess.ID, len(sess.Pages), sess.CommitSHA[:7])
 	}
 	return nil
 }

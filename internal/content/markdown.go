@@ -1,7 +1,9 @@
 package content
 
 import (
+	"fmt"
 	"html/template"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -91,4 +93,80 @@ func ProcessWikiLinks(content string, allPages map[string]bool, sessionPrefix st
 
 		return `[` + linkText + `](` + href + `)`
 	})
+}
+
+// ProcessWikiImages обрабатывает:
+// ![[image.png]] → стандартный markdown
+// ![[image.png|300]] → <img src="..." width="300">
+// ![[image.png|описание|300]] → <img src="..." alt="описание" width="300">
+func ProcessWikiImages(content string, images map[string]string, sessionPrefix string) string {
+	// ![[filename]] или ![[filename|alt]] или ![[filename|alt|width]] или ![[filename|width]]
+	wikiImageRegex := regexp.MustCompile(`!\[\[([^\]|]+)(?:\|([^\]|]+))?(?:\|([^\]]+))?\]\]`)
+
+	return wikiImageRegex.ReplaceAllStringFunc(content, func(match string) string {
+		groups := wikiImageRegex.FindStringSubmatch(match)
+		if groups == nil {
+			return match
+		}
+
+		filename := strings.TrimSpace(groups[1])
+		param1 := strings.TrimSpace(groups[2]) // может быть alt или width
+		param2 := strings.TrimSpace(groups[3]) // может быть width (если param1 — alt)
+
+		// Ищем картинку
+		imgPath, ok := images[filename]
+		if !ok {
+			for k, v := range images {
+				if filepath.Base(k) == filename {
+					imgPath = v
+					break
+				}
+			}
+		}
+
+		if imgPath == "" {
+			return `![` + filename + `](` + filename + `)`
+		}
+
+		imgPath = strings.ReplaceAll(imgPath, "\\", "/")
+		src := sessionPrefix + "raw/" + imgPath
+
+		// Определяем alt и width
+		var alt, width string
+
+		if param2 != "" {
+			// Формат: ![[file|alt|width]]
+			alt = param1
+			width = param2
+		} else if param1 != "" {
+			// Либо alt, либо width
+			if isNumeric(param1) {
+				width = param1
+				alt = strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+			} else {
+				alt = param1
+			}
+		} else {
+			alt = strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+		}
+
+		// Если width указан — используем HTML img, иначе стандартный markdown
+		if width != "" {
+			return fmt.Sprintf(`<img src="%s" alt="%s" width="%s" style="max-width:100%%;height:auto;">`, src, alt, width)
+		}
+
+		return `![` + alt + `](` + src + `)`
+	})
+}
+
+func isNumeric(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

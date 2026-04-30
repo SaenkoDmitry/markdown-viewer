@@ -11,6 +11,7 @@ type storedSession struct {
 	ID        string `json:"id"`
 	RepoURL   string `json:"repo_url"`
 	Branch    string `json:"branch"`
+	CommitSHA string `json:"commit_sha"`
 	Dir       string `json:"dir"`
 	CreatedAt int64  `json:"created_at"`
 }
@@ -25,6 +26,7 @@ func SaveToDisk() {
 			ID:        s.ID,
 			RepoURL:   s.RepoURL,
 			Branch:    s.Branch,
+			CommitSHA: s.CommitSHA,
 			Dir:       s.ContentDir,
 			CreatedAt: s.CreatedAt.Unix(),
 		})
