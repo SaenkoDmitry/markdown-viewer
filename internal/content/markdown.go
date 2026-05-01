@@ -15,10 +15,14 @@ import (
 )
 
 type Page struct {
-	Title   string
-	Content template.HTML
-	Path    string
-	Sidebar []NavItem
+	Title      string
+	Content    template.HTML
+	Path       string
+	Sidebar    []NavItem
+	SessionID  string
+	RepoURL    string
+	Branch     string
+	PagesCount int
 }
 
 type NavItem struct {
@@ -80,9 +84,9 @@ func tableRenderHook(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus,
 	switch n := node.(type) {
 	case *ast.Table:
 		if entering {
-			io.WriteString(w, `<table class="md-table">`)
+			io.WriteString(w, `<div class="table-wrapper"><table class="md-table">`)
 		} else {
-			io.WriteString(w, "</table>\n")
+			io.WriteString(w, "</table></div>\n")
 		}
 		return ast.GoToNext, true
 	case *ast.TableHeader:

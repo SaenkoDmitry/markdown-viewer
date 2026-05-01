@@ -93,5 +93,38 @@
         });
     })();
 </script>
+<script>
+    (function() {
+        // === Тема и меню (ваш существующий код) ===
+        const btn = document.getElementById('theme-toggle');
+        // ... остальной ваш код без изменений ...
+
+        // === Сохранение в историю ===
+        const STORAGE_KEY = 'mdviewer-history';
+        const sessionID = '{{.SessionID}}';
+        const repoURL = '{{.RepoURL}}';
+        const branch = '{{.Branch}}';
+        const pages = '{{.PagesCount}}';
+
+        if (sessionID && repoURL) {
+            let history = [];
+            try {
+                history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            } catch {}
+
+            // Убираем дубликаты по repoURL
+            history = history.filter(h => h.repo !== repoURL);
+            history.push({
+                repo: repoURL,
+                id: sessionID,
+                branch: branch || 'main',
+                pages: pages || 0,
+                date: new Date().toISOString()
+            });
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-20)));
+        }
+    })();
+</script>
 </body>
 </html>

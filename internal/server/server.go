@@ -53,16 +53,14 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-func rateLimitMiddleware(rl *limiter.RateLimiter) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := getClientIP(r)
-			if !rl.Allow(ip) {
-				http.Error(w, "Too many requests", http.StatusTooManyRequests)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
+func rateLimitMiddleware(rl *limiter.RateLimiter, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ip := getClientIP(r)
+		if !rl.Allow(ip) {
+			http.Error(w, "Too many requests", http.StatusTooManyRequests)
+			return
+		}
+		next(w, r)
 	}
 }
 
@@ -102,13 +100,20 @@ func New() *Server {
 
 func (s *Server) Run() error {
 	mux := http.NewServeMux()
+
+	// Главная и страницы сессий
 	mux.HandleFunc("/", s.handleIndex)
-	mux.HandleFunc("/open", s.handleOpen)
+
+	// клонирование репозитория
+	mux.HandleFunc("/open", rateLimitMiddleware(s.limiter, s.handleOpen))
+
+	// чтение сессии (репозиториев)
 	mux.HandleFunc("/api/sessions", s.handleAPI)
+
+	// статика
 	mux.Handle("/static/", http.StripPrefix("/static/", safeFileServer("static")))
 
 	handler := securityHeaders(mux)
-	handler = rateLimitMiddleware(s.limiter)(handler)
 
 	srv := &http.Server{
 		Addr:         ":" + port,

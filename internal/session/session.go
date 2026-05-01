@@ -123,6 +123,10 @@ func Create(repoURL string) (*Session, error) {
 
 	for _, p := range sess.Pages {
 		p.Sidebar = sess.Nav
+		p.SessionID = sess.ID
+		p.RepoURL = sess.RepoURL
+		p.Branch = sess.Branch
+		p.PagesCount = len(sess.Pages)
 	}
 
 	mu.Lock()
@@ -183,6 +187,10 @@ func RestoreFromDisk() error {
 		}
 		for _, p := range sess.Pages {
 			p.Sidebar = sess.Nav
+			p.SessionID = sess.ID
+			p.RepoURL = sess.RepoURL
+			p.Branch = sess.Branch
+			p.PagesCount = len(sess.Pages)
 		}
 
 		mu.Lock()
