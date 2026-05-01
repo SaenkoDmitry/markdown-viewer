@@ -341,3 +341,39 @@ body.menu-open {
     padding: 0.75rem;
     font-size: 0.8em;
 }
+
+/* === Таблицы markdown === */
+.md-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5em 0;
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+.md-table-head {
+    border-bottom: 2px solid #333;
+}
+
+.md-table-header-cell {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    background: #f5f5f5;
+    border-bottom: 2px solid #333;
+}
+
+.md-table-cell {
+    padding: 10px 12px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+}
+
+.md-table-row:hover {
+    background: #f9f9f9;
+}
+
+/* Последняя строка — более толстая граница */
+.md-table-row:last-child .md-table-cell {
+    border-bottom: 2px solid #333;
+}

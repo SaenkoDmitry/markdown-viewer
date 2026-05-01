@@ -3,11 +3,13 @@ package content
 import (
 	"fmt"
 	"html/template"
+	"io"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/ast"
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
 )
@@ -51,13 +53,98 @@ func Slugify(s string) string {
 	return s
 }
 
+// PageTitleFromPath извлекает название страницы из пути файла (без расширения)
+func PageTitleFromPath(filePath string) string {
+	base := filepath.Base(filePath)
+	ext := filepath.Ext(base)
+	title := strings.TrimSuffix(base, ext)
+	// Заменяем дефисы и подчёркивания на пробелы для читаемости
+	title = strings.ReplaceAll(title, "-", " ")
+	title = strings.ReplaceAll(title, "_", " ")
+	return title
+}
+
+// PrependTitle добавляет h1-заголовок с названием файла в начало markdown-контента
+func PrependTitle(md []byte, filePath string) []byte {
+	title := PageTitleFromPath(filePath)
+	if title == "" {
+		return md
+	}
+	// Формируем h1 заголовок и добавляем к контенту
+	header := fmt.Sprintf("# %s\n\n", title)
+	return append([]byte(header), md...)
+}
+
+// tableRenderHook добавляет CSS-классы к таблицам для стилизации границ
+func tableRenderHook(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus, bool) {
+	switch n := node.(type) {
+	case *ast.Table:
+		if entering {
+			io.WriteString(w, `<table class="md-table">`)
+		} else {
+			io.WriteString(w, "</table>\n")
+		}
+		return ast.GoToNext, true
+	case *ast.TableHeader:
+		if entering {
+			io.WriteString(w, `<thead class="md-table-head">`)
+		} else {
+			io.WriteString(w, "</thead>\n")
+		}
+		return ast.GoToNext, true
+	case *ast.TableBody:
+		if entering {
+			io.WriteString(w, `<tbody class="md-table-body">`)
+		} else {
+			io.WriteString(w, "</tbody>\n")
+		}
+		return ast.GoToNext, true
+	case *ast.TableRow:
+		if entering {
+			io.WriteString(w, `<tr class="md-table-row">`)
+		} else {
+			io.WriteString(w, "</tr>\n")
+		}
+		return ast.GoToNext, true
+	case *ast.TableCell:
+		if entering {
+			if n.IsHeader {
+				io.WriteString(w, `<th class="md-table-header-cell"`)
+			} else {
+				io.WriteString(w, `<td class="md-table-cell"`)
+			}
+			// Добавляем выравнивание если есть
+			switch n.Align {
+			case ast.TableAlignmentLeft:
+				io.WriteString(w, ` style="text-align:left"`)
+			case ast.TableAlignmentRight:
+				io.WriteString(w, ` style="text-align:right"`)
+			case ast.TableAlignmentCenter:
+				io.WriteString(w, ` style="text-align:center"`)
+			}
+			io.WriteString(w, ">")
+		} else {
+			if n.IsHeader {
+				io.WriteString(w, "</th>")
+			} else {
+				io.WriteString(w, "</td>")
+			}
+		}
+		return ast.GoToNext, true
+	}
+	return ast.GoToNext, false
+}
+
 func MDToHTML(md []byte) []byte {
 	extensions := parser.CommonExtensions | parser.AutoHeadingIDs
 	p := parser.NewWithExtensions(extensions)
 	doc := p.Parse(md)
 
 	htmlFlags := html.CommonFlags | html.HrefTargetBlank
-	opts := html.RendererOptions{Flags: htmlFlags}
+	opts := html.RendererOptions{
+		Flags:          htmlFlags,
+		RenderNodeHook: tableRenderHook,
+	}
 	renderer := html.NewRenderer(opts)
 
 	return markdown.Render(doc, renderer)
@@ -152,7 +239,7 @@ func ProcessWikiImages(content string, images map[string]string, sessionPrefix s
 
 		// Если width указан — используем HTML img, иначе стандартный markdown
 		if width != "" {
-			return fmt.Sprintf(`<img src="%s" alt="%s" width="%s" style="max-width:100%%;height:auto;">`, src, alt, width)
+			return fmt.Sprintf(`<img src="%s" alt="%s" width="s" style="max-width:100%%;height:auto;">`, src, alt, width)
 		}
 
 		return `![` + alt + `](` + src + `)`

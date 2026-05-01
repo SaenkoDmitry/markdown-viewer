@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -57,9 +58,17 @@ func Load(dir string, sessionPrefix string) (map[string]*Page, []NavItem, error)
 		processedContent := ProcessWikiImages(string(rawContent), tempImages, sessionPrefix)
 		processedContent = ProcessWikiLinks(processedContent, tempPages, sessionPrefix)
 
+		var processedBytes []byte
+		if slices.Contains(Candidates, urlPath) {
+			processedBytes = []byte(processedContent)
+		} else {
+			processedBytes = PrependTitle([]byte(processedContent), path)
+		}
+
+		html := MDToHTML(processedBytes)
 		pages[urlPath] = &Page{
 			Title:   title,
-			Content: template.HTML(MDToHTML([]byte(processedContent))),
+			Content: template.HTML(html),
 			Path:    urlPath,
 		}
 
@@ -99,10 +108,12 @@ func hasMarkdown(dir string) bool {
 	return found
 }
 
-func FindIndexPage(pages map[string]*Page) string {
-	candidates := []string{"readme", "index", "база-знаний", "new-база-знаний"}
+var (
+	Candidates = []string{"readme", "index"}
+)
 
-	for _, c := range candidates {
+func FindIndexPage(pages map[string]*Page) string {
+	for _, c := range Candidates {
 		for k := range pages {
 			if k == c || strings.Contains(k, c) {
 				return k
