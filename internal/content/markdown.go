@@ -79,6 +79,66 @@ func PrependTitle(md []byte, filePath string) []byte {
 	return append([]byte(header), md...)
 }
 
+// ProcessCheckboxes преобразует HTML-чекбоксы из markdown в стилизованные
+// Работает с готовым HTML после парсинга markdown
+func ProcessCheckboxes(html string) string {
+	// Markdown парсер превращает `- [x] текст` в:
+	// <li>[x] текст</li>  или  <p>- [x] текст</p>
+	// Нам нужно найти [x] и [ ] внутри <li> и <p> и заменить на HTML-чекбоксы
+
+	// Сначала обрабатываем элементы списка <li>
+	liCheckboxRegex := regexp.MustCompile(`(?i)(<li[^>]*>)(?:[\s]*)?\[([ xX])\](?:[\s]+)(.*?)(</li>)`)
+	html = liCheckboxRegex.ReplaceAllStringFunc(html, func(match string) string {
+		groups := liCheckboxRegex.FindStringSubmatch(match)
+		if groups == nil {
+			return match
+		}
+
+		openTag := groups[1]
+		checked := strings.ToLower(groups[2]) == "x"
+		text := groups[3]
+		closeTag := groups[4]
+
+		checkbox := `<input type="checkbox" disabled`
+		if checked {
+			checkbox += ` checked`
+		}
+		checkbox += `>`
+
+		if checked {
+			return openTag + checkbox + ` <s>` + text + `</s>` + closeTag
+		}
+		return openTag + checkbox + ` ` + text + closeTag
+	})
+
+	// Обрабатываем параграфы <p> с чекбоксами (inline списки)
+	pCheckboxRegex := regexp.MustCompile(`(?i)(<p[^>]*>.*?)(?:[\s]*)?\[([ xX])\](?:[\s]+)([^<]*)(.*?</p>)`)
+	html = pCheckboxRegex.ReplaceAllStringFunc(html, func(match string) string {
+		groups := pCheckboxRegex.FindStringSubmatch(match)
+		if groups == nil {
+			return match
+		}
+
+		prefix := groups[1]
+		checked := strings.ToLower(groups[2]) == "x"
+		text := groups[3]
+		suffix := groups[4]
+
+		checkbox := `<input type="checkbox" disabled`
+		if checked {
+			checkbox += ` checked`
+		}
+		checkbox += `>`
+
+		if checked {
+			return prefix + checkbox + ` <s>` + text + `</s>` + suffix
+		}
+		return prefix + checkbox + ` ` + text + suffix
+	})
+
+	return html
+}
+
 // tableRenderHook добавляет CSS-классы к таблицам для стилизации границ
 func tableRenderHook(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus, bool) {
 	switch n := node.(type) {
@@ -151,7 +211,11 @@ func MDToHTML(md []byte) []byte {
 	}
 	renderer := html.NewRenderer(opts)
 
-	return markdown.Render(doc, renderer)
+	htmlBytes := markdown.Render(doc, renderer)
+
+	htmlStr := ProcessCheckboxes(string(htmlBytes))
+
+	return []byte(htmlStr)
 }
 
 func ProcessWikiLinks(content string, allPages map[string]bool, sessionPrefix string) string {

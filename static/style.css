@@ -15,6 +15,9 @@
     --btn-bg: #eaeef2;
     --btn-fg: #24292f;
     --burger-bg: #24292f;
+    --checkbox-border: #d0d7de;
+    --checkbox-checked: #0969da;
+    --task-done-fg: #6e7781;
 }
 
 [data-theme="dark"] {
@@ -33,6 +36,9 @@
     --btn-bg: #21262d;
     --btn-fg: #c9d1d9;
     --burger-bg: #c9d1d9;
+    --checkbox-border: #30363d;
+    --checkbox-checked: #58a6ff;
+    --task-done-fg: #484f58;
 }
 
 /* ===== БАЗОВЫЕ ===== */
@@ -59,7 +65,7 @@ body {
 
 /* ===== БУРГЕР ===== */
 .burger {
-    display: none; /* по умолчанию скрыт, JS покажет на мобильных */
+    display: none;
     position: fixed;
     top: 12px;
     left: 12px;
@@ -109,7 +115,6 @@ body {
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 999;
-    -webkit-tap-highlight-color: transparent;
 }
 
 .overlay.active {
@@ -124,7 +129,7 @@ body {
     padding: 1rem 0;
     position: fixed;
     height: 100vh;
-    height: 100dvh; /* для iOS Safari */
+    height: 100dvh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     transition: transform 0.3s ease, background 0.2s;
@@ -145,7 +150,6 @@ body {
 .sidebar-header h3 {
     font-size: 1rem;
     font-weight: 600;
-    margin-left: 0;
 }
 
 .theme-btn {
@@ -157,7 +161,7 @@ body {
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
-    transition: all 0.2s;
+    transition: opacity 0.2s;
     -webkit-appearance: none;
     appearance: none;
 }
@@ -193,8 +197,7 @@ body {
     padding: 2rem 3rem;
     max-width: 900px;
     width: 100%;
-    transition: margin-left 0.3s;
-    min-width: 0; /* важно для flex-контейнеров */
+    min-width: 0;
 }
 
 .markdown-body h1,
@@ -206,11 +209,25 @@ body {
     line-height: 1.25;
 }
 
-.markdown-body h1 { font-size: 2em; border-bottom: 1px solid var(--heading-border); padding-bottom: 0.3em; }
-.markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid var(--heading-border); padding-bottom: 0.3em; }
-.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h1 {
+    font-size: 2em;
+    border-bottom: 1px solid var(--heading-border);
+    padding-bottom: 0.3em;
+}
 
-.markdown-body p { margin: 0 0 1em; }
+.markdown-body h2 {
+    font-size: 1.5em;
+    border-bottom: 1px solid var(--heading-border);
+    padding-bottom: 0.3em;
+}
+
+.markdown-body h3 {
+    font-size: 1.25em;
+}
+
+.markdown-body p {
+    margin: 0 0 1em;
+}
 
 .markdown-body a {
     color: var(--link);
@@ -259,6 +276,53 @@ body {
     margin-top: 0.25em;
 }
 
+/* ===== CHECKBOXES (Task Lists) ===== */
+.markdown-body li input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--checkbox-border);
+    border-radius: 3px;
+    margin-right: 8px;
+    margin-left: -4px;
+    vertical-align: -2px;
+    cursor: default;
+    position: relative;
+    background: var(--bg);
+}
+
+.markdown-body li input[type="checkbox"]:checked {
+    background: var(--checkbox-checked);
+    border-color: var(--checkbox-checked);
+}
+
+.markdown-body li input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Зачёркивание выполненных пунктов */
+.markdown-body li:has(input[type="checkbox"]:checked) s,
+.markdown-body li:has(input[type="checkbox"]:checked) strike,
+.markdown-body li:has(input[type="checkbox"]:checked) del {
+    color: var(--task-done-fg);
+    text-decoration: line-through;
+}
+
+/* Убираем стандартный маркер списка для task-list items */
+.markdown-body li:has(input[type="checkbox"]) {
+    list-style-type: none;
+    margin-left: -1.2em;
+}
+
 /* ===== WIKI-LINKS ===== */
 .wiki-link {
     background: rgba(9, 105, 218, 0.08);
@@ -298,91 +362,50 @@ body {
     border-radius: 4px;
 }
 
-/* ===== MOBILE ===== */
-.burger {
-    display: flex !important; /* принудительно, перебиваем inline-стили JS */
-}
-
-.sidebar {
-    transform: translateX(-100%);
-    width: 280px;
-    max-width: 80vw;
-    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
-}
-
-.sidebar.open {
-    transform: translateX(0);
-}
-
-/* Отступ для заголовка, чтобы бургер не перекрывал */
-.sidebar-header {
-    padding-left: 3.5rem;
-    padding-top: 0.5rem;
-}
-
-.content {
-    margin-left: 0;
-    padding: 4rem 1rem 1rem;
-    max-width: 100%;
-    width: 100%;
-}
-
-body.menu-open {
-    overflow: hidden;
-    position: fixed; /* фикс для iOS */
-    width: 100%;
-}
-
-.markdown-body h1 { font-size: 1.5em; }
-.markdown-body h2 { font-size: 1.25em; }
-.markdown-body h3 { font-size: 1.1em; }
-
-.markdown-body pre {
-    padding: 0.75rem;
-    font-size: 0.8em;
-}
-
-/* === Таблицы markdown === */
+/* ===== ТАБЛИЦЫ ===== */
 .table-wrapper {
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch; /* плавная прокрутка на iOS */
+    -webkit-overflow-scrolling: touch;
     margin: 1em 0;
     border-radius: 4px;
 }
 
 .md-table {
     min-width: 100%;
-    width: auto; /* не растягиваем принудительно */
-    white-space: nowrap; /* предотвращаем перенос в ячейках */
+    width: auto;
+    white-space: nowrap;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 0.95em;
 }
 
 .md-table-head {
-    border-bottom: 2px solid #333;
+    border-bottom: 2px solid var(--heading-border);
 }
 
 .md-table-header-cell {
     padding: 10px 12px;
     text-align: left;
     font-weight: 600;
-    background: #f5f5f5;
-    border-bottom: 2px solid #333;
+    background: var(--sidebar-bg);
+    border-bottom: 2px solid var(--heading-border);
 }
 
 .md-table-cell {
     padding: 10px 12px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--sidebar-border);
     vertical-align: top;
 }
 
 .md-table-row:hover {
-    background: #f9f9f9;
+    background: var(--sidebar-bg);
 }
 
-/* Последняя строка — более толстая граница */
 .md-table-row:last-child .md-table-cell {
-    border-bottom: 2px solid #333;
+    border-bottom: 2px solid var(--heading-border);
 }
 
+/* ===== LANDING PAGE ===== */
 .landing {
     display: flex;
     flex-direction: column;
@@ -392,15 +415,18 @@ body.menu-open {
     padding: 2rem;
     text-align: center;
 }
+
 .landing h1 {
     font-size: 2.5rem;
     margin-bottom: 0.5rem;
     border: none;
 }
+
 .landing p {
     color: var(--nav-folder);
     margin-bottom: 2rem;
 }
+
 .repo-form {
     display: flex;
     flex-direction: column;
@@ -408,6 +434,7 @@ body.menu-open {
     max-width: 600px;
     width: 100%;
 }
+
 .repo-form input {
     padding: 12px 16px;
     border: 1px solid var(--sidebar-border);
@@ -416,10 +443,12 @@ body.menu-open {
     color: var(--fg);
     font-size: 1rem;
 }
+
 .repo-form input:focus {
     outline: none;
     border-color: var(--accent);
 }
+
 .repo-form button {
     padding: 12px 24px;
     background: var(--accent);
@@ -429,34 +458,29 @@ body.menu-open {
     font-size: 1rem;
     cursor: pointer;
 }
+
 .repo-form button:hover {
     background: var(--accent-hover);
 }
+
 .repo-form button:disabled {
     opacity: 0.6;
     cursor: wait;
 }
-.examples {
-    margin-top: 2rem;
-    font-size: 0.875rem;
-    color: var(--nav-folder);
-}
-.examples code {
-    background: var(--code-bg);
-    padding: 2px 6px;
-    border-radius: 4px;
-}
+
 .sessions {
     margin-top: 3rem;
     text-align: left;
     max-width: 600px;
     width: 100%;
 }
+
 .sessions h3 {
     font-size: 1rem;
     margin-bottom: 1rem;
     color: var(--nav-folder);
 }
+
 .session-item {
     display: flex;
     justify-content: space-between;
@@ -469,22 +493,27 @@ body.menu-open {
     color: var(--fg);
     transition: background 0.15s;
 }
+
 .session-item:hover {
     background: var(--sidebar-bg);
 }
+
 .session-info {
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
+
 .session-repo {
     font-weight: 500;
     color: var(--accent);
 }
+
 .session-meta {
     font-size: 0.8rem;
     color: var(--nav-folder);
 }
+
 .session-remove {
     background: none;
     border: none;
@@ -493,12 +522,64 @@ body.menu-open {
     padding: 4px;
     font-size: 1.2rem;
 }
+
 .session-remove:hover {
     color: #cf222e;
 }
-.empty {
-    color: var(--nav-folder);
-    font-size: 0.875rem;
-    text-align: center;
-    padding: 2rem;
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+    .burger {
+        display: flex !important;
+    }
+
+    .sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+        max-width: 80vw;
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar-header {
+        padding-left: 3.5rem;
+        padding-top: 0.5rem;
+    }
+
+    .content {
+        margin-left: 0;
+        padding: 4rem 1rem 1rem;
+        max-width: 100%;
+    }
+
+    body.menu-open {
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+    }
+
+    .markdown-body h1 {
+        font-size: 1.5em;
+    }
+
+    .markdown-body h2 {
+        font-size: 1.25em;
+    }
+
+    .markdown-body h3 {
+        font-size: 1.1em;
+    }
+
+    .markdown-body pre {
+        padding: 0.75rem;
+        font-size: 0.8em;
+    }
+
+    .md-table-header-cell,
+    .md-table-cell {
+        padding: 8px;
+    }
 }
