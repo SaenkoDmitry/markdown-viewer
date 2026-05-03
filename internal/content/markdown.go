@@ -199,7 +199,52 @@ func tableRenderHook(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus,
 	return ast.GoToNext, false
 }
 
+// isListItem проверяет, является ли строка элементом списка
+func isListItem(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") || strings.HasPrefix(trimmed, "+ ") {
+		return true
+	}
+	matched, _ := regexp.MatchString(`^\d+\.\s`, trimmed)
+	return matched
+}
+
+// isHeading проверяет, является ли строка markdown-заголовком
+func isHeading(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	matched, _ := regexp.MatchString(`^#{1,6}\s`, trimmed)
+	return matched
+}
+
+// FixListToHeadingSpacing добавляет пустую строку между элементами списка
+// и следующими за ними заголовками. Без этого CommonMark парсит заголовок
+// как вложенный контент элемента списка, что даёт лишний отступ.
+func FixListToHeadingSpacing(md []byte) []byte {
+	lines := strings.Split(string(md), "\n")
+	var result []string
+
+	for i := 0; i < len(lines); i++ {
+		result = append(result, lines[i])
+
+		if isListItem(lines[i]) {
+			// Ищем следующую непустую строку
+			j := i + 1
+			for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
+				j++
+			}
+			// Если следующая непустая строка — заголовок и между ними нет пустой строки
+			if j < len(lines) && isHeading(lines[j]) && j == i+1 {
+				result = append(result, "")
+			}
+		}
+	}
+
+	return []byte(strings.Join(result, "\n"))
+}
+
 func MDToHTML(md []byte) []byte {
+	md = FixListToHeadingSpacing(md)
+
 	extensions := parser.CommonExtensions | parser.AutoHeadingIDs
 	p := parser.NewWithExtensions(extensions)
 	doc := p.Parse(md)
